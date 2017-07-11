@@ -94,7 +94,46 @@ global class ConnectApiHelper {
         return postFeedItemWithSpecialFormatting(communityId, subjectId, textWithMentionsAndRichText, 'textWithMentionsAndRichText');
     }
     
+    /**
+     * Posts a feed item with rich text using HTML tags, inline image formatting syntax,
+     * and attach files (from the ContentVersion Ids).
+     * 
+     * @param communityId Use either the ID of a community, 'internal', or null.
+     * @param subjectId The parent of the post. Can be a user ID, a group ID, or a record ID.
+     * @param textWithMentionsAndRichText The text of the post. You can @-mention a
+     *                         user or group by using the syntax {ID}, for example: 
+     *                         'Hello {005x0000000URNP}, have you seen the group {0F9x00000000D7m}?' 
+     *                         You can include rich text by using supported HTML tags: 
+     *                         <b>, <i>, <u>, <s>, <ul>, <ol>, <li>, <p>.
+     *                         You can include an inline image by using the syntax {img:ID} or
+     *                         {img:ID:alt text}, for example: 'Have you seen this gorgeous view?
+     *                         {img:069x00000000D7m:View of the Space Needle from our office.}?' 
+     *                         Links and hashtags will be automatically parsed if provided.
+     * @param fileIds The list of string of the ContentVersion Ids
+     * @return The posted feed item.
+     */
+    public static ConnectApi.FeedElement postFeedItemWithFiles(String communityId, String subjectId, String textWithMentionsAndRichText, String fileIds) {
+        List<String> fileIdsList = fileIds.split(',');
+        
+        ConnectApi.FilesCapabilityInput filesInput = new ConnectApi.FilesCapabilityInput();
+        filesInput.items = new List<ConnectApi.FileIdInput>();
+        for (String fileId : fileIdsList) {
+            ConnectApi.FileIdInput idInput = new ConnectApi.FileIdInput();
+            idInput.id = fileId;
+            filesInput.items.add(idInput);
+        }
+
+        ConnectApi.FeedElementCapabilitiesInput feedElementCapabilitiesInput = new ConnectApi.FeedElementCapabilitiesInput();
+        feedElementCapabilitiesInput.files = filesInput;
+
+        return postFeedItemWithSpecialFormatting(communityId, subjectId, textWithMentionsAndRichText, feedElementCapabilitiesInput, 'textWithMentionsAndRichTextAndFiles');
+    }
+
     private static ConnectApi.FeedElement postFeedItemWithSpecialFormatting(String communityId, String subjectId, String formattedText, String textParameterName) {
+        return postFeedItemWithSpecialFormatting(communityId, subjectId, formattedText, null, textParameterName);
+    }
+    
+    private static ConnectApi.FeedElement postFeedItemWithSpecialFormatting(String communityId, String subjectId, String formattedText, ConnectApi.FeedElementCapabilitiesInput capabilities, String textParameterName) {
         if (formattedText == null || formattedText.trim().length() == 0) {
             throw new InvalidParameterException('The ' + textParameterName + ' parameter must be non-empty.');
         }
@@ -105,6 +144,10 @@ global class ConnectApiHelper {
         ConnectApi.FeedItemInput input = new ConnectApi.FeedItemInput();
         input.body = messageInput;
         input.subjectId = subjectId;
+        
+        if (capabilities != null) {
+            input.capabilities = capabilities;
+        }
         
         return ConnectApi.ChatterFeeds.postFeedElement(communityId, input);
     }
